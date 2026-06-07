@@ -4,6 +4,7 @@ export class CreateOrganizationDto {
   @IsString()
   name: string;
 
+  @IsOptional()
   @IsString()
   description: string;
 

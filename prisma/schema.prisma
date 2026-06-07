@@ -119,7 +119,7 @@ model OrganizationMember {
 
   invitedBy Int?
 
-  joinedAt  DateTime?
+  joinedAt  DateTime? @default(now())
   removedAt DateTime?
 
   createdAt DateTime @default(now())
@@ -137,9 +137,9 @@ model OrganizationMember {
 model Team {
   id Int @id @default(autoincrement())
 
-  name String
-  code String
-  icon String?
+  name      String
+  code      String
+  icon      String?
   iconColor String?
 
   issueCounter Int @default(0)
@@ -178,7 +178,7 @@ model TeamMember {
 
   addedById Int?
 
-  joinedAt DateTime?
+  joinedAt DateTime? @default(now())
 
   removedAt DateTime?
 

@@ -6,10 +6,19 @@ import { UpdateOrganizationDto } from "./dto/update-organization.dto";
 @Injectable()
 export class OrganizationsService {
   constructor(private prisma: PrismaService) {}
-  async create(createOrganizationDto: CreateOrganizationDto) {
+  async create(createOrganizationDto: CreateOrganizationDto, userId: number) {
     try {
       const organization = await this.prisma.organization.create({
-        data: createOrganizationDto,
+        data: {
+          ...createOrganizationDto,
+          members: {
+            create: {
+              userId,
+              role: "OWNER",
+              status: "ACTIVE",
+            },
+          },
+        },
       });
       return organization;
     } catch (error) {
@@ -18,9 +27,17 @@ export class OrganizationsService {
     }
   }
 
-  async findAll() {
+  async findAll(userId: number) {
     try {
-      const organizations = await this.prisma.organization.findMany();
+      const organizations = await this.prisma.organization.findMany({
+        where: {
+          members: {
+            some: {
+              userId,
+            },
+          },
+        },
+      });
       return organizations;
     } catch (err) {
       console.error("Error finding all organizations:", err);
