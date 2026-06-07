@@ -24,7 +24,7 @@ export class ActivitiesService {
           {
             issue: {
               OR: [
-                { assignedToId: userId },
+                { assignees: { some: { userId: userId } } },
                 { createdById: userId },
               ],
             },
@@ -34,7 +34,9 @@ export class ActivitiesService {
       include: {
         issue: {
           include: {
-            assignedTo: true,
+            assignees: {
+              include: { user: true },
+            },
             createdBy: true,
             team: true,
             project: true,

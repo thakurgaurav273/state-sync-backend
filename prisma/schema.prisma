@@ -15,6 +15,15 @@ enum MemberRole {
   OWNER
   ADMIN
   MEMBER
+  LEAD
+}
+
+enum OrganizationRole {
+  OWNER
+  BILLING
+  ADMIN
+  MANAGER
+  MEMBER
 }
 
 enum MemberStatus {
@@ -33,7 +42,6 @@ enum IssueStatus {
   CANCELED
   DUPLICATE
   SPILL_OVER
-
 }
 
 enum Priority {
@@ -50,19 +58,26 @@ model User {
   password String
   avatar   String?
 
-  memberships     OrganizationMember[]
-  teamMemberships TeamMember[]
-  comments        IssueComment[]
-  mentions        CommentMention[]
-  activities      IssueActivity[]
+  memberships OrganizationMember[]
+
+  comments   IssueComment[]
+  mentions   CommentMention[]
+  activities IssueActivity[]
 
   createdTeams    Team[]    @relation("TeamCreator")
   createdProjects Project[] @relation("ProjectCreator")
 
-  createdIssues  Issue[] @relation("IssueCreator")
-  assignedIssues Issue[] @relation("IssueAssignee")
+  createdIssues Issue[] @relation("IssueCreator")
+
+  issueAssignments IssueAssignee[] @relation("AssignedUser")
+
+  assignedByMe IssueAssignee[] @relation("AssignedByUser")
 
   uploadedAttachments IssueAttachment[] @relation("UploadedAttachments")
+
+  teamMemberships TeamMember[] @relation("TeamMemberUser")
+
+  addedTeamMembers TeamMember[] @relation("TeamMemberAdder")
 
   createdLabels Label[] @relation("LabelCreator")
 
@@ -78,11 +93,18 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members     OrganizationMember[]
-  teams       Team[]
-  projects    Project[]
-  issues      Issue[]
-  labels      Label[]
+  members OrganizationMember[]
+
+  teams Team[]
+
+  teamMembers TeamMember[]
+
+  projects Project[]
+
+  issues Issue[]
+
+  labels Label[]
+
   attachments IssueAttachment[]
 }
 
@@ -92,7 +114,7 @@ model OrganizationMember {
   organizationId Int
   userId         Int
 
-  role   MemberRole
+  role   OrganizationRole
   status MemberStatus
 
   invitedBy Int?
@@ -117,6 +139,8 @@ model Team {
 
   name String
   code String
+  icon String?
+  iconColor String?
 
   issueCounter Int @default(0)
 
@@ -142,20 +166,40 @@ model Team {
 model TeamMember {
   id Int @id @default(autoincrement())
 
+  organizationId Int
+
   teamId Int
+
   userId Int
 
   role MemberRole
 
+  status MemberStatus @default(ACTIVE)
+
+  addedById Int?
+
+  joinedAt DateTime?
+
+  removedAt DateTime?
+
   createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
 
   team Team @relation(fields: [teamId], references: [id])
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation("TeamMemberUser", fields: [userId], references: [id])
+
+  addedBy User? @relation("TeamMemberAdder", fields: [addedById], references: [id])
 
   @@unique([teamId, userId])
+  @@index([organizationId])
   @@index([teamId])
   @@index([userId])
+  @@index([addedById])
+  @@index([organizationId, teamId])
 }
 
 model Project {
@@ -167,10 +211,9 @@ model Project {
   organizationId Int
   createdById    Int
 
-  visibility ProjectVisibility
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  visibility ProjectVisibility @default(TEAM)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
@@ -198,6 +241,28 @@ model ProjectTeam {
   @@index([teamId])
 }
 
+model IssueAssignee {
+  id Int @id @default(autoincrement())
+
+  issueId Int
+
+  userId Int
+
+  assignedById Int?
+
+  createdAt DateTime @default(now())
+
+  issue Issue @relation(fields: [issueId], references: [id])
+
+  user User @relation("AssignedUser", fields: [userId], references: [id])
+
+  assignedBy User? @relation("AssignedByUser", fields: [assignedById], references: [id])
+
+  @@unique([issueId, userId])
+  @@index([issueId])
+  @@index([userId])
+}
+
 model Issue {
   id Int @id @default(autoincrement())
 
@@ -206,22 +271,23 @@ model Issue {
   title       String?
   description String?
 
-  status IssueStatus @default(BACKLOG)
-  priority Priority @default(LOW)
+  status   IssueStatus @default(BACKLOG)
+  priority Priority    @default(LOW)
+
   organizationId Int
   teamId         Int
-  projectId Int?
-  createdById  Int
-  assignedToId Int?
+  projectId      Int?
+
+  createdById Int
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   createdBy User @relation("IssueCreator", fields: [createdById], references: [id])
 
-  assignedTo User? @relation("IssueAssignee", fields: [assignedToId], references: [id])
-
   organization Organization @relation(fields: [organizationId], references: [id])
+
+  assignees IssueAssignee[]
 
   team Team @relation(fields: [teamId], references: [id])
 
@@ -236,8 +302,6 @@ model Issue {
   @@index([teamId])
   @@index([projectId])
   @@index([createdById])
-  @@index([assignedToId])
-  @@index([organizationId, assignedToId])
   @@index([organizationId, projectId])
 }
 

@@ -38,11 +38,13 @@ export class IssuesService {
           },
         },
 
-        assignedTo: {
-          connect: {
-            id: Number(createIssueDto.assignedToId),
+        ...(createIssueDto.assignedToId ? {
+          assignees: {
+            create: {
+              userId: Number(createIssueDto.assignedToId),
+            },
           },
-        },
+        } : {}),
 
         team: {
           connect: {
@@ -99,7 +101,11 @@ export class IssuesService {
               label: true,
             },
           },
-          assignedTo: true,
+          assignees: {
+            include: {
+              user: true,
+            },
+          },
           attachments: true,
         },
       });
@@ -132,13 +138,30 @@ export class IssuesService {
     try {
       const issue = await this.prisma.issue.findUnique({
         where: { issueId: id },
+        include: { assignees: true },
       });
       if (!issue) {
         throw new Error("Issue not found");
       }
+
+      const { assignedToId, ...restData } = updateIssueDto;
+      const dataToUpdate: any = { ...restData };
+      const currentAssigneeId = issue.assignees[0]?.userId;
+
+      if (assignedToId !== undefined && assignedToId !== currentAssigneeId) {
+        dataToUpdate.assignees = {
+          deleteMany: {},
+          ...(assignedToId ? {
+            create: {
+              userId: assignedToId,
+            },
+          } : {}),
+        };
+      }
+
       const updatedIssue = await this.prisma.issue.update({
         where: { issueId: id },
-        data: updateIssueDto,
+        data: dataToUpdate,
       });
 
       const changes: string[] = [];
@@ -149,8 +172,8 @@ export class IssuesService {
         changes.push(`changed priority to ${updateIssueDto.priority}`);
       }
       if (
-        updateIssueDto.assignedToId !== undefined &&
-        updateIssueDto.assignedToId !== issue.assignedToId
+        assignedToId !== undefined &&
+        assignedToId !== currentAssigneeId
       ) {
         changes.push(`updated the assignee`);
       }
@@ -164,8 +187,8 @@ export class IssuesService {
             metadata: {
               prevStatus: issue.status,
               newStatus: updateIssueDto.status,
-              prevAssignee: issue.assignedToId,
-              newAssignee: updateIssueDto.assignedToId,
+              prevAssignee: currentAssigneeId,
+              newAssignee: assignedToId,
             },
           },
         });

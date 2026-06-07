@@ -1,4 +1,4 @@
-import { IsInt, IsString } from "class-validator";
+import { IsInt, IsOptional, IsString } from "class-validator";
 
 export class CreateTeamDto {
   @IsString()
@@ -15,4 +15,12 @@ export class CreateTeamDto {
 
   @IsInt()
   createdById: number;
+
+  @IsOptional()
+  @IsString()
+  icon?: string;
+
+  @IsOptional()
+  @IsString()
+  iconColor?: string;
 }
